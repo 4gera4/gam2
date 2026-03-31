@@ -656,6 +656,12 @@ function setupEventListeners() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
+    // Кнопки сложности в главном меню
+    document.getElementById('btn-easy').addEventListener('click', () => startGame('easy'));
+    document.getElementById('btn-normal').addEventListener('click', () => startGame('normal'));
+    document.getElementById('btn-hard').addEventListener('click', () => startGame('hard'));
+    document.getElementById('phystech-btn').addEventListener('click', () => startGame('phystech'));
+
     // Мышь (Pointer Lock)
     document.addEventListener('click', () => {
         if (isGameActive && !isPaused) {
