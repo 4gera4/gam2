@@ -876,6 +876,12 @@ function backToMenu() {
     document.exitPointerLock();
 }
 
+// Делаем функции глобальными для доступа из HTML
+window.resumeGame = resumeGame;
+window.restartGame = restartGame;
+window.backToMenu = backToMenu;
+window.startGame = startGame;
+
 function winGame() {
     isGameActive = false;
     document.exitPointerLock();
