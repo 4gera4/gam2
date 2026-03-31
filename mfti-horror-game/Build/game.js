@@ -656,11 +656,30 @@ function setupEventListeners() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
-    // Кнопки сложности в главном меню
-    document.getElementById('btn-easy').addEventListener('click', () => startGame('easy'));
-    document.getElementById('btn-normal').addEventListener('click', () => startGame('normal'));
-    document.getElementById('btn-hard').addEventListener('click', () => startGame('hard'));
-    document.getElementById('phystech-btn').addEventListener('click', () => startGame('phystech'));
+    // Кнопки сложности в главном меню - используем надежный способ
+    const btnEasy = document.getElementById('btn-easy');
+    const btnNormal = document.getElementById('btn-normal');
+    const btnHard = document.getElementById('btn-hard');
+    const btnPhystech = document.getElementById('phystech-btn');
+    
+    console.log('Кнопки:', { btnEasy, btnNormal, btnHard, btnPhystech });
+    
+    if (btnEasy) btnEasy.addEventListener('click', () => {
+        console.log('Нажата кнопка Легко');
+        startGame('easy');
+    });
+    if (btnNormal) btnNormal.addEventListener('click', () => {
+        console.log('Нажата кнопка Нормально');
+        startGame('normal');
+    });
+    if (btnHard) btnHard.addEventListener('click', () => {
+        console.log('Нажата кнопка Сложно');
+        startGame('hard');
+    });
+    if (btnPhystech) btnPhystech.addEventListener('click', () => {
+        console.log('Нажата кнопка ФИЗТЕХ');
+        startGame('phystech');
+    });
 
     // Мышь (Pointer Lock)
     document.addEventListener('click', () => {
