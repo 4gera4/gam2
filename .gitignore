@@ -1,4 +1,65 @@
 ```
-# Build artifacts
-mfti-horror-game/Build/
+# Unity specific ignores
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+*.unityproj
+*.sln
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.cache
+*.meta
+!*.prefab.meta
+!*.unity.meta
+!*.asset.meta
+
+# Visual Studio
+.vs/
+*.userprefs
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.aps
+*.pch
+*.vspscc
+*.vssscc
+*.mod
+*.sdf
+*.opendb
+*.opensdf
+*.sln.docstates
+*.vcxproj*
+[Bb]in/
+[Dd]ebug*/
+[Rr]elease*/
+x64/
+x86/
+build/
+bld/
+[Bb]uild[Dd]eploy[Hh]elper/
+*.builds
+*.pidb
+*.log
+
+# Rider
+.idea/
+*.DotSettings
+*.DotSettings.user
+
+# macOS
+.DS_Store
+.CVS
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 ```
