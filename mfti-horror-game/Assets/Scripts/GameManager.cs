@@ -56,8 +56,7 @@ public class GameManager : MonoBehaviour
     
     void Start()
     {
-        // Не запускаем игру автоматически - ждем выбора сложности из главного меню
-        // StartGame() будет вызван из UIManager когда игрок выберет сложность
+        StartGame();
     }
     
     void Update()

@@ -14,6 +14,7 @@ let gameTime = 0;
 let isGameActive = false;
 let isPaused = false;
 let difficulty = 'normal';
+let gameInitialized = false;
 
 // Настройки
 const WALK_SPEED = 5;
@@ -43,47 +44,89 @@ let isPointerLocked = false;
 // ============================================
 
 function init() {
-    // Сцена
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111);
-    scene.fog = new THREE.Fog(0x111111, 10, 60);
+    console.log('Initializing game...');
+    
+    try {
+        // Проверяем, загрузился ли Three.js
+        if (typeof THREE === 'undefined') {
+            console.error('Three.js not loaded!');
+            showError('Three.js не загрузился. Проверьте интернет-соединение.');
+            return;
+        }
+        
+        // Сцена
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x111111);
+        scene.fog = new THREE.Fog(0x111111, 10, 60);
 
-    // Камера
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.y = 3;
+        // Камера
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.y = 3;
 
-    // Рендерер
-    renderer = new THREE.WebGLRenderer({ 
-        canvas: document.getElementById('gameCanvas'),
-        antialias: true 
-    });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        // Рендерер
+        const canvas = document.getElementById('gameCanvas');
+        if (!canvas) {
+            console.error('Canvas not found!');
+            return;
+        }
+        
+        renderer = new THREE.WebGLRenderer({ 
+            canvas: canvas,
+            antialias: true 
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-    // Освещение
-    setupLighting();
+        // Освещение
+        setupLighting();
 
-    // Создаем карту
-    generateMap();
+        // Создаем карту
+        generateMap();
 
-    // Создаем игрока
-    createPlayer();
+        // Создаем игрока
+        createPlayer();
 
-    // Создаем преподавателей
-    spawnTeachers();
+        // Создаем преподавателей
+        spawnTeachers();
 
-    // Создаем интегралы
-    spawnIntegrals();
+        // Создаем интегралы
+        spawnIntegrals();
 
-    // Обработчики событий
-    setupEventListeners();
+        // Обработчики событий
+        setupEventListeners();
 
-    // Обработка изменения размера окна
-    window.addEventListener('resize', onWindowResize);
+        // Обработка изменения размера окна
+        window.addEventListener('resize', onWindowResize);
 
-    // Запускаем игровой цикл
-    animate();
+        gameInitialized = true;
+        console.log('Game initialized successfully!');
+        
+        // Запускаем игровой цикл
+        animate();
+    } catch (error) {
+        console.error('Error initializing game:', error);
+        showError('Ошибка инициализации: ' + error.message);
+    }
+}
+
+function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(255, 0, 0, 0.9);
+        color: white;
+        padding: 20px;
+        border-radius: 10px;
+        font-size: 18px;
+        z-index: 10000;
+        text-align: center;
+    `;
+    errorDiv.textContent = message;
+    document.body.appendChild(errorDiv);
 }
 
 function setupLighting() {
@@ -116,6 +159,8 @@ function setupLighting() {
 // ============================================
 
 function generateMap() {
+    console.log('Generating map...');
+    
     // Инициализируем карту
     for (let x = 0; x < MAP_WIDTH; x++) {
         map[x] = [];
@@ -166,6 +211,7 @@ function generateMap() {
 
     // Создаем 3D объекты
     createMapObjects();
+    console.log('Map generated!');
 }
 
 function createMapObjects() {
@@ -285,10 +331,14 @@ function addDecorations() {
 
     for (let i = 0; i < 15; i++) {
         let x, z;
+        let attempts = 0;
         do {
             x = Math.floor(Math.random() * MAP_WIDTH);
             z = Math.floor(Math.random() * MAP_HEIGHT);
-        } while (map[x][z] !== 0);
+            attempts++;
+        } while ((map[x][z] !== 0) && attempts < 50);
+        
+        if (attempts >= 50) continue;
 
         const desk = new THREE.Mesh(deskGeometry, deskMaterial);
         desk.position.set(
@@ -307,10 +357,14 @@ function addDecorations() {
 
     for (let i = 0; i < 5; i++) {
         let x, z;
+        let attempts = 0;
         do {
             x = Math.floor(Math.random() * MAP_WIDTH);
             z = Math.floor(Math.random() * MAP_HEIGHT);
-        } while (map[x][z] !== 0);
+            attempts++;
+        } while ((map[x][z] !== 0) && attempts < 50);
+        
+        if (attempts >= 50) continue;
 
         const board = new THREE.Mesh(boardGeometry, boardMaterial);
         board.position.set(
@@ -327,6 +381,7 @@ function addDecorations() {
 // ============================================
 
 function createPlayer() {
+    console.log('Creating player...');
     player = new THREE.Object3D();
     player.position.set(0, 3, 0);
     scene.add(player);
@@ -341,27 +396,63 @@ function createPlayer() {
 // ============================================
 
 function spawnTeachers() {
+    console.log('Spawning teachers...');
     const teacherCount = getTeacherCount();
-    const teacherGeometry = new THREE.CapsuleGeometry(0.8, 2, 4, 8);
+    
+    // Очищаем старых преподавателей
+    teachers.forEach(t => {
+        if (t.mesh && t.mesh.parent) {
+            scene.remove(t.mesh);
+        }
+    });
+    teachers = [];
 
     for (let i = 0; i < teacherCount; i++) {
         let x, z;
+        let attempts = 0;
         do {
             x = Math.floor(Math.random() * MAP_WIDTH);
             z = Math.floor(Math.random() * MAP_HEIGHT);
-        } while (map[x][z] !== 0 || getDistanceToPlayer(x, z) < 5);
+            attempts++;
+        } while ((map[x][z] !== 0 || getDistanceToPlayer(x, z) < 5) && attempts < 50);
+        
+        if (attempts >= 50) continue;
 
-        const teacherMaterial = new THREE.MeshStandardMaterial({ 
-            color: getTeacherColor(i) 
-        });
+        const teacherColor = getTeacherColor(i);
 
-        const teacher = new THREE.Mesh(teacherGeometry, teacherMaterial);
+        // Создаем преподавателя из группы объектов (вместо CapsuleGeometry)
+        const teacher = new THREE.Group();
+        
+        // Тело (цилиндр)
+        const bodyGeometry = new THREE.CylinderGeometry(0.8, 0.8, 2, 16);
+        const bodyMaterial = new THREE.MeshStandardMaterial({ color: teacherColor });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.castShadow = true;
+        teacher.add(body);
+        
+        // Верхняя полусфера
+        const topSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2),
+            bodyMaterial
+        );
+        topSphere.position.y = 1;
+        topSphere.castShadow = true;
+        teacher.add(topSphere);
+        
+        // Нижняя полусфера
+        const bottomSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(0.8, 16, 8, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2),
+            bodyMaterial
+        );
+        bottomSphere.position.y = -1;
+        bottomSphere.castShadow = true;
+        teacher.add(bottomSphere);
+        
         teacher.position.set(
             (x - MAP_WIDTH / 2) * CELL_SIZE,
             2,
             (z - MAP_HEIGHT / 2) * CELL_SIZE
         );
-        teacher.castShadow = true;
         scene.add(teacher);
 
         // Добавляем глаза (светящиеся)
@@ -369,11 +460,11 @@ function spawnTeachers() {
         const eyeMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
         
         const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(-0.3, 0.5, 0.6);
+        leftEye.position.set(-0.3, 0.5, 0.7);
         teacher.add(leftEye);
         
         const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(0.3, 0.5, 0.6);
+        rightEye.position.set(0.3, 0.5, 0.7);
         teacher.add(rightEye);
 
         teachers.push({
@@ -387,6 +478,7 @@ function spawnTeachers() {
             waitTime: 0
         });
     }
+    console.log(`Spawned ${teachers.length} teachers`);
 }
 
 function getTeacherColor(index) {
@@ -425,6 +517,8 @@ function getDetectionRange() {
 }
 
 function updateTeachers(delta) {
+    if (!player) return;
+    
     const playerPos = player.position;
     let playerDetected = false;
 
@@ -461,10 +555,8 @@ function updateTeachers(delta) {
 
     // Показываем/скрываем предупреждение
     const warning = document.getElementById('detection-warning');
-    if (playerDetected) {
-        warning.style.display = 'block';
-    } else {
-        warning.style.display = 'none';
+    if (warning) {
+        warning.style.display = playerDetected ? 'block' : 'none';
     }
 }
 
@@ -478,10 +570,14 @@ function patrol(teacher, delta) {
         teacher.mesh.position.distanceTo(teacher.patrolTarget) < 1) {
         // Выбираем новую цель
         let tx, tz;
+        let attempts = 0;
         do {
             tx = Math.floor(Math.random() * MAP_WIDTH);
             tz = Math.floor(Math.random() * MAP_HEIGHT);
-        } while (map[tx][tz] !== 0);
+            attempts++;
+        } while (map[tx][tz] !== 0 && attempts < 20);
+        
+        if (attempts >= 20) return;
 
         teacher.patrolTarget = new THREE.Vector3(
             (tx - MAP_WIDTH / 2) * CELL_SIZE,
@@ -528,6 +624,15 @@ function getDistanceToPlayer(x, z) {
 // ============================================
 
 function spawnIntegrals() {
+    console.log('Spawning integrals...');
+    
+    // Очищаем старые интегралы
+    integrals.forEach(i => {
+        if (i.mesh && i.mesh.parent) scene.remove(i.mesh);
+        if (i.light && i.light.parent) scene.remove(i.light);
+    });
+    integrals = [];
+    
     const integralFormulas = [
         { formula: '∫x dx', difficulty: 'Простой', color: 0x00ff00 },
         { formula: '∫x² dx', difficulty: 'Простой', color: 0x00ff00 },
@@ -541,10 +646,14 @@ function spawnIntegrals() {
 
     for (let i = 0; i < totalIntegrals; i++) {
         let x, z;
+        let attempts = 0;
         do {
             x = Math.floor(Math.random() * MAP_WIDTH);
             z = Math.floor(Math.random() * MAP_HEIGHT);
-        } while (map[x][z] !== 0);
+            attempts++;
+        } while ((map[x][z] !== 0) && attempts < 50);
+        
+        if (attempts >= 50) continue;
 
         const formulaData = integralFormulas[Math.floor(Math.random() * integralFormulas.length)];
 
@@ -579,6 +688,7 @@ function spawnIntegrals() {
             floatOffset: Math.random() * Math.PI * 2
         });
     }
+    console.log(`Spawned ${integrals.length} integrals`);
 }
 
 function updateIntegrals(delta) {
@@ -594,9 +704,11 @@ function updateIntegrals(delta) {
         integral.light.position.copy(integral.mesh.position);
 
         // Проверка сбора
-        const distance = player.position.distanceTo(integral.mesh.position);
-        if (distance < 2) {
-            collectIntegral(integral);
+        if (player) {
+            const distance = player.position.distanceTo(integral.mesh.position);
+            if (distance < 2) {
+                collectIntegral(integral);
+            }
         }
     });
 }
@@ -618,22 +730,24 @@ function collectIntegral(integral) {
     }
 }
 
-function showNotification(formula, difficulty) {
+function showNotification(formula, difficultyText) {
     const notification = document.getElementById('notification');
     const formulaEl = document.getElementById('formula');
     const difficultyEl = document.getElementById('difficulty');
 
+    if (!notification || !formulaEl || !difficultyEl) return;
+
     formulaEl.textContent = formula;
-    difficultyEl.textContent = difficulty + ' интеграл';
+    difficultyEl.textContent = difficultyText + ' интеграл';
     
     // Цвет в зависимости от сложности
-    if (difficulty === 'Простой') {
+    if (difficultyText === 'Простой') {
         notification.style.borderColor = '#0f0';
         notification.style.color = '#0f0';
-    } else if (difficulty === 'Средний') {
+    } else if (difficultyText === 'Средний') {
         notification.style.borderColor = '#ff0';
         notification.style.color = '#ff0';
-    } else if (difficulty === 'Сложный') {
+    } else if (difficultyText === 'Сложный') {
         notification.style.borderColor = '#f00';
         notification.style.color = '#f00';
     } else {
@@ -656,12 +770,6 @@ function setupEventListeners() {
     document.addEventListener('keydown', onKeyDown);
     document.addEventListener('keyup', onKeyUp);
 
-    // Кнопки сложности в главном меню
-    document.getElementById('btn-easy').addEventListener('click', () => startGame('easy'));
-    document.getElementById('btn-normal').addEventListener('click', () => startGame('normal'));
-    document.getElementById('btn-hard').addEventListener('click', () => startGame('hard'));
-    document.getElementById('phystech-btn').addEventListener('click', () => startGame('phystech'));
-
     // Мышь (Pointer Lock)
     document.addEventListener('click', () => {
         if (isGameActive && !isPaused) {
@@ -677,6 +785,8 @@ function setupEventListeners() {
 }
 
 function onKeyDown(event) {
+    if (!isGameActive || isPaused) return;
+    
     switch (event.code) {
         case 'KeyW': moveForward = true; break;
         case 'KeyS': moveBackward = true; break;
@@ -709,7 +819,7 @@ function onMouseMove(event) {
 }
 
 function updatePlayer(delta) {
-    if (!isGameActive || isPaused) return;
+    if (!isGameActive || isPaused || !player) return;
 
     // Выносливость
     if (isRunning && (moveForward || moveBackward || moveLeft || moveRight)) {
@@ -769,31 +879,51 @@ function checkWallCollision(x, z) {
 // ============================================
 
 function updateHUD() {
-    document.getElementById('integral-count').textContent = `${collectedIntegrals}/${totalIntegrals}`;
-    document.getElementById('stamina-fill').style.width = `${stamina}%`;
+    const integralCount = document.getElementById('integral-count');
+    const staminaFill = document.getElementById('stamina-fill');
+    const gameTimeEl = document.getElementById('game-time');
+
+    if (integralCount) {
+        integralCount.textContent = `${collectedIntegrals}/${totalIntegrals}`;
+    }
     
-    // Цвет выносливости
-    const fill = document.getElementById('stamina-fill');
-    if (stamina > 50) {
-        fill.style.background = 'linear-gradient(90deg, #0f0, #0a0)';
-    } else if (stamina > 25) {
-        fill.style.background = 'linear-gradient(90deg, #ff0, #aa0)';
-    } else {
-        fill.style.background = 'linear-gradient(90deg, #f00, #a00)';
+    if (staminaFill) {
+        staminaFill.style.width = `${stamina}%`;
+        
+        // Цвет выносливости
+        if (stamina > 50) {
+            staminaFill.style.background = 'linear-gradient(90deg, #0f0, #0a0)';
+        } else if (stamina > 25) {
+            staminaFill.style.background = 'linear-gradient(90deg, #ff0, #aa0)';
+        } else {
+            staminaFill.style.background = 'linear-gradient(90deg, #f00, #a00)';
+        }
     }
 
     // Время
-    const minutes = Math.floor(gameTime / 60);
-    const seconds = Math.floor(gameTime % 60);
-    document.getElementById('game-time').textContent = 
-        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    if (gameTimeEl) {
+        const minutes = Math.floor(gameTime / 60);
+        const seconds = Math.floor(gameTime % 60);
+        gameTimeEl.textContent = 
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
 }
 
 function startGame(diff) {
+    console.log('Starting game with difficulty:', diff);
+    
+    if (!gameInitialized) {
+        console.error('Game not initialized yet!');
+        return;
+    }
+    
     difficulty = diff;
     
-    document.getElementById('mainMenu').classList.add('hidden');
-    document.getElementById('hud').style.display = 'block';
+    const mainMenu = document.getElementById('mainMenu');
+    const hud = document.getElementById('hud');
+    
+    if (mainMenu) mainMenu.classList.add('hidden');
+    if (hud) hud.style.display = 'block';
     
     isGameActive = true;
     isPaused = false;
@@ -806,19 +936,25 @@ function startGame(diff) {
 }
 
 function resetGame() {
+    console.log('Resetting game...');
+    
     // Сброс переменных
     collectedIntegrals = 0;
     stamina = 100;
     gameTime = 0;
     
     // Удаляем старых преподавателей
-    teachers.forEach(t => scene.remove(t.mesh));
+    teachers.forEach(t => {
+        if (t.mesh && t.mesh.parent) {
+            scene.remove(t.mesh);
+        }
+    });
     teachers = [];
     
     // Удаляем старые интегралы
     integrals.forEach(i => {
-        scene.remove(i.mesh);
-        scene.remove(i.light);
+        if (i.mesh && i.mesh.parent) scene.remove(i.mesh);
+        if (i.light && i.light.parent) scene.remove(i.light);
     });
     integrals = [];
     
@@ -827,9 +963,13 @@ function resetGame() {
     spawnIntegrals();
     
     // Сброс позиции игрока
-    player.position.set(0, 3, 0);
-    player.rotation.set(0, 0, 0);
-    camera.rotation.set(0, 0, 0);
+    if (player) {
+        player.position.set(0, 3, 0);
+        player.rotation.set(0, 0, 0);
+    }
+    if (camera) {
+        camera.rotation.set(0, 0, 0);
+    }
 }
 
 function togglePause() {
@@ -837,12 +977,14 @@ function togglePause() {
     
     isPaused = !isPaused;
     
+    const pauseMenu = document.getElementById('pauseMenu');
+    
     if (isPaused) {
         document.exitPointerLock();
-        document.getElementById('pauseMenu').classList.remove('hidden');
+        if (pauseMenu) pauseMenu.classList.remove('hidden');
     } else {
         document.body.requestPointerLock();
-        document.getElementById('pauseMenu').classList.add('hidden');
+        if (pauseMenu) pauseMenu.classList.add('hidden');
     }
 }
 
@@ -851,10 +993,15 @@ function resumeGame() {
 }
 
 function restartGame() {
-    document.getElementById('winScreen').classList.add('hidden');
-    document.getElementById('gameOverScreen').classList.add('hidden');
-    document.getElementById('pauseMenu').classList.add('hidden');
-    document.getElementById('hud').style.display = 'block';
+    const winScreen = document.getElementById('winScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseMenu = document.getElementById('pauseMenu');
+    const hud = document.getElementById('hud');
+
+    if (winScreen) winScreen.classList.add('hidden');
+    if (gameOverScreen) gameOverScreen.classList.add('hidden');
+    if (pauseMenu) pauseMenu.classList.add('hidden');
+    if (hud) hud.style.display = 'block';
     
     isGameActive = true;
     isPaused = false;
@@ -864,11 +1011,17 @@ function restartGame() {
 }
 
 function backToMenu() {
-    document.getElementById('winScreen').classList.add('hidden');
-    document.getElementById('gameOverScreen').classList.add('hidden');
-    document.getElementById('pauseMenu').classList.add('hidden');
-    document.getElementById('hud').style.display = 'none';
-    document.getElementById('mainMenu').classList.remove('hidden');
+    const winScreen = document.getElementById('winScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const pauseMenu = document.getElementById('pauseMenu');
+    const hud = document.getElementById('hud');
+    const mainMenu = document.getElementById('mainMenu');
+
+    if (winScreen) winScreen.classList.add('hidden');
+    if (gameOverScreen) gameOverScreen.classList.add('hidden');
+    if (pauseMenu) pauseMenu.classList.add('hidden');
+    if (hud) hud.style.display = 'none';
+    if (mainMenu) mainMenu.classList.remove('hidden');
     
     isGameActive = false;
     isPaused = false;
@@ -883,8 +1036,14 @@ function winGame() {
     const minutes = Math.floor(gameTime / 60);
     const seconds = Math.floor(gameTime % 60);
     
-    document.getElementById('win-time').textContent = 
-        `Время: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    const winTime = document.getElementById('win-time');
+    const winMessage = document.getElementById('win-message');
+    const winScreen = document.getElementById('winScreen');
+    const hud = document.getElementById('hud');
+
+    if (winTime) {
+        winTime.textContent = `Время: ${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
     
     const messages = [
         'Отлично! Вы сдали сессию!',
@@ -892,31 +1051,39 @@ function winGame() {
         'Все интегралы решены! Ты гений!',
         'Сессия сдана! Лето свободно!'
     ];
-    document.getElementById('win-message').textContent = 
-        messages[Math.floor(Math.random() * messages.length)];
+    if (winMessage) {
+        winMessage.textContent = messages[Math.floor(Math.random() * messages.length)];
+    }
     
-    document.getElementById('hud').style.display = 'none';
-    document.getElementById('winScreen').classList.remove('hidden');
+    if (hud) hud.style.display = 'none';
+    if (winScreen) winScreen.classList.remove('hidden');
 }
 
 function gameOver() {
     isGameActive = false;
     document.exitPointerLock();
     
+    const loseMessage = document.getElementById('lose-message');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+    const hud = document.getElementById('hud');
+
     const messages = [
         'Вас отчислили...',
         'Сессия не сдана. Пересдача через год.',
         'Профессор вас поймал! Конец игры.',
         'Вы не справились с интегралами...'
     ];
-    document.getElementById('lose-message').textContent = 
-        messages[Math.floor(Math.random() * messages.length)];
+    if (loseMessage) {
+        loseMessage.textContent = messages[Math.floor(Math.random() * messages.length)];
+    }
     
-    document.getElementById('hud').style.display = 'none';
-    document.getElementById('gameOverScreen').classList.remove('hidden');
+    if (hud) hud.style.display = 'none';
+    if (gameOverScreen) gameOverScreen.classList.remove('hidden');
 }
 
 function onWindowResize() {
+    if (!camera || !renderer) return;
+    
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -938,8 +1105,10 @@ function animate() {
         updateIntegrals(delta);
     }
 
-    renderer.render(scene, camera);
+    if (renderer && scene && camera) {
+        renderer.render(scene, camera);
+    }
 }
 
-// Запускаем игру
-init();
+// Запускаем игру когда страница загрузится
+window.addEventListener('load', init);

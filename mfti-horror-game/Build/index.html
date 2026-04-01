@@ -32,6 +32,37 @@
             pointer-events: none;
         }
         
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        #loading h2 {
+            color: #0f0;
+            font-size: 32px;
+            margin-bottom: 20px;
+            animation: blink 1s infinite;
+        }
+        
+        #loading p {
+            color: #888;
+            font-size: 16px;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
         #hud {
             display: none;
             padding: 20px;
@@ -67,45 +98,47 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             border: 3px solid #0f0;
             padding: 40px;
             text-align: center;
             pointer-events: auto;
+            min-width: 350px;
         }
         
         h1 {
             color: #0f0;
-            font-size: 48px;
+            font-size: 42px;
             margin-bottom: 20px;
             text-shadow: 0 0 20px #0f0;
         }
         
         h2 {
             color: #f00;
-            font-size: 36px;
+            font-size: 32px;
             margin-bottom: 20px;
             text-shadow: 0 0 20px #f00;
         }
         
         .subtitle {
             color: #0f0;
-            font-size: 18px;
-            margin-bottom: 30px;
+            font-size: 16px;
+            margin-bottom: 20px;
         }
         
         .button {
             display: block;
             width: 250px;
             margin: 10px auto;
-            padding: 15px;
+            padding: 12px;
             background: #000;
             color: #0f0;
             border: 2px solid #0f0;
-            font-size: 20px;
+            font-size: 18px;
             cursor: pointer;
             transition: all 0.3s;
             font-family: 'Courier New', monospace;
+            pointer-events: auto;
         }
         
         .button:hover {
@@ -140,12 +173,13 @@
             top: 30%;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 0, 0.95);
             border: 2px solid #f0f;
             padding: 20px;
             color: #f0f;
             font-size: 24px;
             text-align: center;
+            pointer-events: none;
         }
         
         #formula {
@@ -155,7 +189,7 @@
         
         #controls {
             color: #888;
-            font-size: 14px;
+            font-size: 12px;
             margin-top: 20px;
         }
         
@@ -166,10 +200,11 @@
             left: 50%;
             transform: translateX(-50%);
             color: #f00;
-            font-size: 36px;
+            font-size: 28px;
             font-weight: bold;
             text-shadow: 0 0 20px #f00;
             animation: pulse 0.5s infinite;
+            pointer-events: none;
         }
         
         @keyframes pulse {
@@ -186,6 +221,7 @@
             height: 20px;
             border: 2px solid #0f0;
             border-radius: 50%;
+            pointer-events: none;
         }
         
         #crosshair::after {
@@ -203,10 +239,35 @@
         .hidden {
             display: none !important;
         }
+        
+        #error-message {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 18px;
+            z-index: 10000;
+            text-align: center;
+            max-width: 400px;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
+    
+    <!-- Loading Screen -->
+    <div id="loading">
+        <h2>ЗАГРУЗКА...</h2>
+        <p>Генерация коридоров МФТИ...</p>
+    </div>
+    
+    <!-- Error Message -->
+    <div id="error-message"></div>
     
     <div id="ui">
         <!-- HUD -->
@@ -233,12 +294,12 @@
             <h1>ФИЗТЕХ ХОРРОР</h1>
             <div class="subtitle">Побег от преподавателей МФТИ</div>
             <div class="subtitle">Собери все интегралы, чтобы сдать сессию!</div>
-            <button class="button difficulty-btn" id="btn-easy">Легко (Зачет)</button>
-            <button class="button difficulty-btn" id="btn-normal">Нормально (Экзамен)</button>
-            <button class="button difficulty-btn" id="btn-hard">Сложно (Сессия)</button>
-            <button class="button" id="phystech-btn">ФИЗТЕХ (Ад)</button>
+            <button class="button difficulty-btn" onclick="startGame('easy')">Легко (Зачет)</button>
+            <button class="button difficulty-btn" onclick="startGame('normal')">Нормально (Экзамен)</button>
+            <button class="button difficulty-btn" onclick="startGame('hard')">Сложно (Сессия)</button>
+            <button class="button" id="phystech-btn" onclick="startGame('phystech')">ФИЗТЕХ (Ад)</button>
             <div id="controls">
-                WASD - Движение | SHIFT - Бег | E - Взаимодействие | ESC - Пауза
+                WASD - Движение | SHIFT - Бег | Мышь - Осмотр | ESC - Пауза
             </div>
         </div>
         
@@ -281,5 +342,16 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="game.js"></script>
+    <script>
+        // Скрываем загрузку когда игра готова
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                const loading = document.getElementById('loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }, 1000);
+        });
+    </script>
 </body>
 </html>
